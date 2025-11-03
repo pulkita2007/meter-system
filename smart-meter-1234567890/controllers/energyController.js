@@ -137,37 +137,124 @@ const checkForPowerSpike = async (deviceId, currentPower, userId) => {
  *
  * Returns aggregated consumption (avg power) grouped by day/hour for the requested period.
  */
+
+
+// const getEnergyTrends = async (req, res) => {
+//   try {
+//     const { deviceId, period = "1h", groupBy = "minute" } = req.query;
+
+//     // determine start date
+//     let startDate = new Date();
+//     if (period === "24h") startDate.setHours(startDate.getHours() - 24);
+//     else if (period === "7d") startDate.setDate(startDate.getDate() - 7);
+//     else if (period === "30d") startDate.setDate(startDate.getDate() - 30);
+
+//     else startDate.setHours(startDate.getHours() - 1); // default 1 hour
+
+//     // Build match stage
+//     const match = { timestamp: { $gte: startDate } };
+//     if (deviceId) match.deviceId = deviceId;
+
+//     // Choose grouping expression
+//      const groupId = {
+//       year: { $year: "$timestamp" },
+//       month: { $month: "$timestamp" },
+//       day: { $dayOfMonth: "$timestamp" },
+//       hour: { $hour: "$timestamp" },
+//       minute: { $minute: "$timestamp" },
+//     };
+//     // } else {
+//     //   // group by day (default)
+//     //   groupId = {
+//     //     year: { $year: "$timestamp" },
+//     //     month: { $month: "$timestamp" },
+//     //     day: { $dayOfMonth: "$timestamp" },
+//     //   };
+//     // }
+
+//     const pipeline = [
+//       { $match: match },
+//       {
+//         $group: {
+//           _id: groupId,
+//           avgPower: { $avg: "$power" },
+//           maxPower: { $max: "$power" },
+//           minPower: { $min: "$power" },
+//           count: { $sum: 1 },
+//         },
+//       },
+//       { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1, "_id.hour": 1 } },
+//     ];
+
+//     const agg = await EnergyReading.aggregate(pipeline).allowDiskUse(true);
+
+//     // Convert _id to readable label
+//    const trends = agg.map((item) => {
+//       const id = item._id;
+//       const label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
+//         id.day
+//       ).padStart(2, "0")} ${String(id.hour).padStart(2, "0")}:${String(
+//         id.minute
+//       ).padStart(2, "0")}`;
+
+//       return {
+//         label,
+//         avgPower: Number(item.avgPower.toFixed(2)),
+//         maxPower: Number(item.maxPower.toFixed(2)),
+//         minPower: Number(item.minPower.toFixed(2)),
+//         count: item.count,
+//       };
+//     });
+
+//     const formattedTrends = trends.map((t) => ({
+//   title: `Trend for ${t.label}`,
+//   value: `${t.avgPower} W`,
+//   change: "+5%",
+//   changeType: "up",
+//   color: "#00d4ff",
+//   data: [
+//     {
+//       label: t.label,
+//       avgPower: t.avgPower,
+//       maxPower: t.maxPower,
+//       minPower: t.minPower,
+//       count: t.count,
+//     },
+//   ],
+// }));
+
+// return res.json({ success: true, trends: formattedTrends });
+
+//     // return res.json({ success: true, trends });
+//   } catch (err) {
+//     console.error("getEnergyTrends error:", err);
+//     return res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
+
 const getEnergyTrends = async (req, res) => {
   try {
-    const { deviceId, period = "7d", groupBy = "day" } = req.query;
+    const { deviceId, period = "1h", groupBy = "minute" } = req.query;
 
-    // determine start date
+    // Determine start date
     let startDate = new Date();
     if (period === "24h") startDate.setHours(startDate.getHours() - 24);
+    else if (period === "7d") startDate.setDate(startDate.getDate() - 7);
     else if (period === "30d") startDate.setDate(startDate.getDate() - 30);
-    else startDate.setDate(startDate.getDate() - 7); // default 7d
+    else startDate.setHours(startDate.getHours() - 1); // default 1 hour
 
-    // Build match stage
+    // Match stage
     const match = { timestamp: { $gte: startDate } };
     if (deviceId) match.deviceId = deviceId;
 
-    // Choose grouping expression
-    let groupId;
-    if (groupBy === "hour") {
-      groupId = {
-        year: { $year: "$timestamp" },
-        month: { $month: "$timestamp" },
-        day: { $dayOfMonth: "$timestamp" },
-        hour: { $hour: "$timestamp" },
-      };
-    } else {
-      // group by day (default)
-      groupId = {
-        year: { $year: "$timestamp" },
-        month: { $month: "$timestamp" },
-        day: { $dayOfMonth: "$timestamp" },
-      };
-    }
+    // Group by minute instead of hour/day
+    const groupId = {
+      year: { $year: "$timestamp" },
+      month: { $month: "$timestamp" },
+      day: { $dayOfMonth: "$timestamp" },
+      hour: { $hour: "$timestamp" },
+      minute: { $minute: "$timestamp" },
+    };
 
     const pipeline = [
       { $match: match },
@@ -180,24 +267,28 @@ const getEnergyTrends = async (req, res) => {
           count: { $sum: 1 },
         },
       },
-      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1, "_id.hour": 1 } },
+      {
+        $sort: {
+          "_id.year": 1,
+          "_id.month": 1,
+          "_id.day": 1,
+          "_id.hour": 1,
+          "_id.minute": 1,
+        },
+      },
     ];
 
     const agg = await EnergyReading.aggregate(pipeline).allowDiskUse(true);
 
-    // Convert _id to readable label
+    // Format output
     const trends = agg.map((item) => {
       const id = item._id;
-      let label;
-      if (groupBy === "hour") {
-        label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
-          id.day
-        ).padStart(2, "0")} ${String(id.hour).padStart(2, "0")}:00`;
-      } else {
-        label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
-          id.day
-        ).padStart(2, "0")}`;
-      }
+      const label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
+        id.day
+      ).padStart(2, "0")} ${String(id.hour).padStart(2, "0")}:${String(
+        id.minute
+      ).padStart(2, "0")}`;
+
       return {
         label,
         avgPower: Number(item.avgPower.toFixed(2)),
@@ -207,12 +298,25 @@ const getEnergyTrends = async (req, res) => {
       };
     });
 
-    return res.json({ success: true, trends });
-  } catch (err) {
-    console.error("getEnergyTrends error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    // Format for frontend
+    const formattedTrends = [
+      {
+        title: `Trend for ${new Date().toISOString().split("T")[0]}`,
+        value: `${trends.length ? trends[trends.length - 1].avgPower : 0} W`,
+        change: "+5%",
+        changeType: "up",
+        color: "#00d4ff",
+        data: trends,
+      },
+    ];
+
+    res.json({ success: true, trends: formattedTrends });
+  } catch (error) {
+    console.error("Error in getEnergyTrends:", error);
+    res.status(500).json({ success: false, error: "Server Error" });
   }
 };
+
 
 /**
  * GET /api/energy/history

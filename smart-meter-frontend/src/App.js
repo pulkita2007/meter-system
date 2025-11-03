@@ -20,7 +20,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trend-analysis" element={<TrendAnalysis />} />
-          <Route path="/create" element={<AlertsPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/devices" element={<DeviceConsumption />} />
           <Route path="/cost-efficiency" element={<CostEfficiency />} />
           {/*<Route path="/settings" element={<SettingsPage />} /> */}

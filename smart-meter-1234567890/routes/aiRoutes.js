@@ -13,7 +13,7 @@ const router = express.Router();
 // @route   GET /api/ai/predict/:deviceId
 // @desc    Get AI prediction for device
 // @access  Private
-router.get("/predict/:deviceId", auth, getAIPrediction);
+// router.get("/predict/:deviceId", auth, getAIPrediction);
 
 // @route   GET /api/ai/predictions/:deviceId
 // @desc    Get prediction history for device
@@ -35,4 +35,20 @@ router.post("/predict-fault", auth, predictDeviceFault);
 // @access  Private
 router.post("/predict-recommendation", auth, predictRecommendations);
 
+// router.post("/predict-energy", auth, runAI);
+
 module.exports = router;
+
+
+
+// import express from "express";
+// import { runAI } from "../controllers/aiController.js";
+// import { protect as auth } from "../middleware/authMiddleware.js";
+
+// const router = express.Router();
+
+// router.post("/predict-energy", auth, runAI);
+// router.post("/predict-fault", auth, runAI);
+// router.post("/predict-recommendation", auth, runAI);
+
+// export default router;

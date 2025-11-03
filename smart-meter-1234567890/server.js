@@ -13,10 +13,12 @@ const alertRoutes = require("./routes/alertRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const costEfficiencyRoutes = require("./routes/costEfficiencyRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
+// import aiRoutes from "./routes/aiRoutes.js";
 
 // Connect to database
 connectDB();
@@ -51,6 +53,7 @@ app.use("/api/alerts", alertRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/cost-efficiency", costEfficiencyRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
