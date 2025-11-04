@@ -87,80 +87,127 @@ const Dashboard = () => {
 //   fetchData();
 // }, []);
 
+// useEffect(() => {
+//   const fetchData = async () => {
+//     try {
+//       const token = localStorage.getItem("token");
+//       const userId = localStorage.getItem("userId");
+
+//       if (!token || !userId) {
+//         console.warn("Missing token or user ID");
+//         return;
+//       }
+
+//       // 1️⃣ Fetch devices for the logged-in user
+//       const devicesRes = await api.get(`/api/devices/${userId}`, {
+//         headers: { Authorization: `Bearer ${token}` },
+//       });
+
+//       const devices = devicesRes.data.devices;
+//       if (!devices || devices.length === 0) {
+//         console.warn("No devices found for this user");
+//         return;
+//       }
+
+//       console.log("Devices:", devices);
+
+//       // 2️⃣ Take the first device’s ID
+//       const firstDeviceId = devices[0].deviceId;
+
+//       // 3️⃣ Fetch energy data for that device
+//       const energyRes = await api.get(`/api/energy/${firstDeviceId}`, {
+//         headers: { Authorization: `Bearer ${token}` },
+//       });
+//       console.log(firstDeviceId);
+
+//       console.log("Energy Data:", energyRes.data);
+//     //   if (res.data && res.data.readings.length > 0) {
+//     //   setEnergyData({
+//     //     current_power_usage: res.data.readings[res.data.readings.length - 1].power,
+//     //     energy_consumed_today: res.data.total,
+//     //     estimated_cost: (res.data.total * 0.012).toFixed(2), // cost estimate
+//     //     carbon_emission: (res.data.total * 0.0007).toFixed(2), // optional
+//     //   });
+
+//     //   // Optional: if backend sends chart data
+//     //   if (energyRes.data.historicalData) {
+//     //     setHistoricalData(energyRes.data.historicalData);
+//     //   }
+//     // }
+//     // }
+//      if (energyRes.data && energyRes.data.readings.length > 0) {
+//       setEnergyData({
+//         current_power_usage: energyRes.data.readings[energyRes.data.readings.length - 1].power,
+//         energy_consumed_today: energyRes.data.total,
+//         estimated_cost: (energyRes.data.total * 0.012).toFixed(2), // cost estimate
+//         carbon_emission: (energyRes.data.total * 0.0007).toFixed(2), // optional
+//       });
+
+//       // For charts
+//  setHistoricalData(
+//   (energyRes.data.readings || []).map((r) => ({
+//     time: new Date(r.timestamp).toLocaleTimeString(),
+//     power: r.power,
+//   }))
+// );
+
+//     } else {
+//       setEnergyData(null);
+//     }
+//   }
+//     catch (err) {
+//       console.error("Error fetching energy data:", err);
+//     }
+//   };
+
+//   fetchData();
+// }, []);
 useEffect(() => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
 
-      if (!token || !userId) {
-        console.warn("Missing token or user ID");
-        return;
-      }
+      if (!token || !userId) return;
 
-      // 1️⃣ Fetch devices for the logged-in user
       const devicesRes = await api.get(`/api/devices/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      // const firstDeviceId = devicesRes.data.devices[0]?.deviceId;
+      // if (!firstDeviceId) return;
 
-      const devices = devicesRes.data.devices;
-      if (!devices || devices.length === 0) {
-        console.warn("No devices found for this user");
-        return;
-      }
+      const firstDeviceId = "METER001"; // 👈 Use this
 
-      console.log("Devices:", devices);
-
-      // 2️⃣ Take the first device’s ID
-      const firstDeviceId = devices[0].deviceId;
-
-      // 3️⃣ Fetch energy data for that device
       const energyRes = await api.get(`/api/energy/${firstDeviceId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log(firstDeviceId);
 
-      console.log("Energy Data:", energyRes.data);
-    //   if (res.data && res.data.readings.length > 0) {
-    //   setEnergyData({
-    //     current_power_usage: res.data.readings[res.data.readings.length - 1].power,
-    //     energy_consumed_today: res.data.total,
-    //     estimated_cost: (res.data.total * 0.012).toFixed(2), // cost estimate
-    //     carbon_emission: (res.data.total * 0.0007).toFixed(2), // optional
-    //   });
-
-    //   // Optional: if backend sends chart data
-    //   if (energyRes.data.historicalData) {
-    //     setHistoricalData(energyRes.data.historicalData);
-    //   }
-    // }
-    // }
-     if (energyRes.data && energyRes.data.readings.length > 0) {
-      setEnergyData({
-        current_power_usage: energyRes.data.readings[energyRes.data.readings.length - 1].power,
-        energy_consumed_today: energyRes.data.total,
-        estimated_cost: (energyRes.data.total * 0.012).toFixed(2), // cost estimate
-        carbon_emission: (energyRes.data.total * 0.0007).toFixed(2), // optional
-      });
-
-      // For charts
- setHistoricalData(
-  (energyRes.data.readings || []).map((r) => ({
-    time: new Date(r.timestamp).toLocaleTimeString(),
-    power: r.power,
-  }))
-);
-
-    } else {
-      setEnergyData(null);
-    }
-  }
-    catch (err) {
-      console.error("Error fetching energy data:", err);
+      if (energyRes.data?.readings?.length) {
+        const last = energyRes.data.readings.at(-1);
+        setEnergyData({
+          current_power_usage: last.power,
+          energy_consumed_today: energyRes.data.total,
+          estimated_cost: (energyRes.data.total * 0.012).toFixed(2),
+          carbon_emission: (energyRes.data.total * 0.0007).toFixed(2),
+        });
+        setHistoricalData(
+          energyRes.data.readings.map((r) => ({
+            time: new Date(r.timestamp).toLocaleTimeString(),
+            power: r.power,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
     }
   };
 
+  // Run once immediately
   fetchData();
+
+  // Then poll every 5 seconds
+  // const interval = setInterval(fetchData, 5000);
+  // return () => clearInterval(interval);
 }, []);
 
 

@@ -6,6 +6,52 @@ const { sendEnergyAlert } = require("../utils/notificationService");
 const User = require("../models/User");
 
 // ✅ Add energy reading
+// const addEnergyReading = async (req, res) => {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         success: false,
+//         errors: errors.array(),
+//       });
+//     }
+
+//     const { deviceId, current, voltage, temperature } = req.body;
+
+//     const device = await Device.findOne({ deviceId });
+//     if (!device) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Device not found",
+//       });
+//     }
+
+//     const power = current * voltage;
+
+//     const energyReading = await EnergyReading.create({
+//       deviceId,
+//       current,
+//       voltage,
+//       temperature,
+//       power,
+//       userId: device.userId,
+//     });
+
+//     await checkForPowerSpike(deviceId, power, device.userId);
+
+//     res.status(201).json({
+//       success: true,
+//       energyReading,
+//     });
+//   } catch (error) {
+//     console.error("Add energy reading error:", error.message);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// };
+
 const addEnergyReading = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -18,12 +64,18 @@ const addEnergyReading = async (req, res) => {
 
     const { deviceId, current, voltage, temperature } = req.body;
 
-    const device = await Device.findOne({ deviceId });
+    let device = await Device.findOne({ deviceId });
     if (!device) {
-      return res.status(404).json({
-        success: false,
-        message: "Device not found",
+      // ✅ Auto-create a placeholder device if not found
+      device = await Device.create({
+        deviceId,
+    deviceName: `ESP Device ${deviceId}`,
+    location: "Auto-created by ESP32",
+    powerRating: 1000, // default 1000W
+    userId: "6906f2494abbdf0af4d92240", // ⚠️ replace with a valid user _id from your DB
+    status: "off"
       });
+      console.log(`ℹ️ Auto-created new device: ${deviceId}`);
     }
 
     const power = current * voltage;
@@ -34,8 +86,10 @@ const addEnergyReading = async (req, res) => {
       voltage,
       temperature,
       power,
-      userId: device.userId,
+      userId: device.userId || null,
     });
+    await device.save({ validateBeforeSave: false });
+  console.log(`ℹ️ Auto-created new device: ${deviceId}`);
 
     await checkForPowerSpike(deviceId, power, device.userId);
 
@@ -51,6 +105,7 @@ const addEnergyReading = async (req, res) => {
     });
   }
 };
+
 
 // ✅ Get readings for a device
 const getEnergyReadings = async (req, res) => {
@@ -232,30 +287,139 @@ const checkForPowerSpike = async (deviceId, currentPower, userId) => {
 //   }
 // };
 
+// const getEnergyTrends = async (req, res) => {
+//   try {
+//     const { deviceId, period = "1h", groupBy = "minute" } = req.query;
+
+//     // Determine start date
+//     let startDate = new Date();
+//     if (period === "24h") startDate.setHours(startDate.getHours() - 24);
+//     else if (period === "7d") startDate.setDate(startDate.getDate() - 7);
+//     else if (period === "30d") startDate.setDate(startDate.getDate() - 30);
+//     else startDate.setHours(startDate.getHours() - 1); // default 1 hour
+
+//     // Match stage
+
+//     const match = { timestamp: { $gte: startDate } };
+//     if (deviceId) match.deviceId = deviceId;
+
+//     // Group by minute instead of hour/day
+//     const groupId = {
+//       year: { $year: "$timestamp" },
+//       month: { $month: "$timestamp" },
+//       day: { $dayOfMonth: "$timestamp" },
+//       hour: { $hour: "$timestamp" },
+//       minute: { $minute: "$timestamp" },
+//     };
+
+//     const pipeline = [
+//       { $match: match },
+//       {
+//         $group: {
+//           _id: groupId,
+//           avgPower: { $avg: "$power" },
+//           maxPower: { $max: "$power" },
+//           minPower: { $min: "$power" },
+//           count: { $sum: 1 },
+//         },
+//       },
+//       {
+//         $sort: {
+//           "_id.year": 1,
+//           "_id.month": 1,
+//           "_id.day": 1,
+//           "_id.hour": 1,
+//           "_id.minute": 1,
+//         },
+//       },
+//     ];
+
+//     const agg = await EnergyReading.aggregate(pipeline).allowDiskUse(true);
+
+//     // Format output
+//     const trends = agg.map((item) => {
+//       const id = item._id;
+//       const label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
+//         id.day
+//       ).padStart(2, "0")} ${String(id.hour).padStart(2, "0")}:${String(
+//         id.minute
+//       ).padStart(2, "0")}`;
+
+//       return {
+//         label,
+//         avgPower: Number(item.avgPower.toFixed(2)),
+//         maxPower: Number(item.maxPower.toFixed(2)),
+//         minPower: Number(item.minPower.toFixed(2)),
+//         count: item.count,
+//       };
+//     });
+
+//     // Format for frontend
+//     const formattedTrends = [
+//       {
+//         title: `Trend for ${new Date().toISOString().split("T")[0]}`,
+//         value: `${trends.length ? trends[trends.length - 1].avgPower : 0} W`,
+//         change: "+5%",
+//         changeType: "up",
+//         color: "#00d4ff",
+//         data: trends,
+//       },
+//     ];
+
+//     res.json({ success: true, trends: formattedTrends });
+//   } catch (error) {
+//     console.error("Error in getEnergyTrends:", error);
+//     res.status(500).json({ success: false, error: "Server Error" });
+//   }
+// };
+
 const getEnergyTrends = async (req, res) => {
   try {
-    const { deviceId, period = "1h", groupBy = "minute" } = req.query;
+    const { deviceId, period = "7d", groupBy = "hour" } = req.query;
 
-    // Determine start date
+    // Determine start date based on period
     let startDate = new Date();
     if (period === "24h") startDate.setHours(startDate.getHours() - 24);
     else if (period === "7d") startDate.setDate(startDate.getDate() - 7);
     else if (period === "30d") startDate.setDate(startDate.getDate() - 30);
     else startDate.setHours(startDate.getHours() - 1); // default 1 hour
 
-    // Match stage
-    const match = { timestamp: { $gte: startDate } };
+    // ✅ Check whether your model uses timestamp or createdAt
+    const dateField = EnergyReading.schema.path("timestamp")
+      ? "timestamp"
+      : "createdAt";
+
+    const match = { [dateField]: { $gte: startDate } };
     if (deviceId) match.deviceId = deviceId;
 
-    // Group by minute instead of hour/day
-    const groupId = {
-      year: { $year: "$timestamp" },
-      month: { $month: "$timestamp" },
-      day: { $dayOfMonth: "$timestamp" },
-      hour: { $hour: "$timestamp" },
-      minute: { $minute: "$timestamp" },
-    };
+    console.log("🔍 Aggregation match filter:", match);
 
+    // ✅ Dynamically group based on `groupBy`
+    let groupId;
+    if (groupBy === "minute") {
+      groupId = {
+        year: { $year: `$${dateField}` },
+        month: { $month: `$${dateField}` },
+        day: { $dayOfMonth: `$${dateField}` },
+        hour: { $hour: `$${dateField}` },
+        minute: { $minute: `$${dateField}` },
+      };
+    } else if (groupBy === "hour") {
+      groupId = {
+        year: { $year: `$${dateField}` },
+        month: { $month: `$${dateField}` },
+        day: { $dayOfMonth: `$${dateField}` },
+        hour: { $hour: `$${dateField}` },
+      };
+    } else {
+      groupId = {
+        year: { $year: `$${dateField}` },
+        month: { $month: `$${dateField}` },
+        day: { $dayOfMonth: `$${dateField}` },
+      };
+    }
+
+    // ✅ Aggregation pipeline
     const pipeline = [
       { $match: match },
       {
@@ -273,21 +437,43 @@ const getEnergyTrends = async (req, res) => {
           "_id.month": 1,
           "_id.day": 1,
           "_id.hour": 1,
-          "_id.minute": 1,
         },
       },
     ];
 
     const agg = await EnergyReading.aggregate(pipeline).allowDiskUse(true);
+    console.log(`📊 Aggregated ${agg.length} data points`);
 
-    // Format output
+    if (agg.length === 0) {
+      return res.json({
+        success: true,
+        trends: [
+          {
+            title: `Trend for ${new Date().toISOString().split("T")[0]}`,
+            value: "0 W",
+            change: "0%",
+            changeType: "neutral",
+            color: "#ccc",
+            data: [],
+          },
+        ],
+      });
+    }
+
+    // ✅ Format data
     const trends = agg.map((item) => {
       const id = item._id;
-      const label = `${id.year}-${String(id.month).padStart(2, "0")}-${String(
-        id.day
-      ).padStart(2, "0")} ${String(id.hour).padStart(2, "0")}:${String(
-        id.minute
-      ).padStart(2, "0")}`;
+      const labelParts = [
+        id.year,
+        String(id.month).padStart(2, "0"),
+        String(id.day).padStart(2, "0"),
+      ];
+      if (id.hour !== undefined)
+        labelParts.push(String(id.hour).padStart(2, "0"));
+      if (id.minute !== undefined)
+        labelParts.push(String(id.minute).padStart(2, "0"));
+
+      const label = labelParts.join("-");
 
       return {
         label,
@@ -298,11 +484,12 @@ const getEnergyTrends = async (req, res) => {
       };
     });
 
-    // Format for frontend
+    // ✅ Frontend format
+    const latest = trends[trends.length - 1];
     const formattedTrends = [
       {
         title: `Trend for ${new Date().toISOString().split("T")[0]}`,
-        value: `${trends.length ? trends[trends.length - 1].avgPower : 0} W`,
+        value: `${latest.avgPower} W`,
         change: "+5%",
         changeType: "up",
         color: "#00d4ff",
@@ -310,9 +497,9 @@ const getEnergyTrends = async (req, res) => {
       },
     ];
 
-    res.json({ success: true, trends: formattedTrends });
+    return res.json({ success: true, trends: formattedTrends });
   } catch (error) {
-    console.error("Error in getEnergyTrends:", error);
+    console.error("❌ Error in getEnergyTrends:", error);
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };

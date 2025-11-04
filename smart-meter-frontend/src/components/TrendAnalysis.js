@@ -81,28 +81,25 @@ const TrendAnalysis = () => {
 
   //   fetchTrendData();
   // }, []);
-
-  useEffect(() => {
   const fetchTrendData = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-
-      // 1️⃣ Fetch user's devices first
-      const devicesRes = await api.get(`/api/devices/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const devices = devicesRes.data.devices;
-      if (!devices || devices.length === 0) {
-        console.warn("No devices found for user.");
-        return;
-      }
-
-      const firstDeviceId = devices[0].deviceId || "METER0005"; // fallback just in case
-
+      try {
+        const token = localStorage.getItem("token");
+        const userId = localStorage.getItem("userId");
+  
+        // 1️⃣ Fetch user's devices first
+        const devicesRes = await api.get(`/api/devices/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+  
+        const devices = devicesRes.data.devices;
+        if (!devices || devices.length === 0) {
+          console.warn("No devices found for user.");
+          return;
+        }
       // 2️⃣ Fetch consumption trends (optional deviceId)
-      const trendRes = await api.get(`/api/energy/trends?deviceId=${firstDeviceId}`);
+      // const trendRes = await api.get(`/api/energy/trends?deviceId=${firstDeviceId}`);
+      const trendRes = await api.get(`/api/energy/trends?deviceId=${firstDeviceId}&period=24h`);
+
       setConsumptionTrends(trendRes.data?.trends || []);
 
       // 3️⃣ Fetch AI predictions
@@ -113,7 +110,16 @@ const TrendAnalysis = () => {
 
       // 4️⃣ Fetch historical energy data ✅ FIXED
       const histRes = await api.get(`/api/energy/history?deviceId=${firstDeviceId}`);
-      setHistoricalData(histRes.data?.history || []);
+      // setHistoricalData(histRes.data?.history || []);
+      // console.log("📊 Historical API response:", histRes.data);
+      const formattedHistory = (histRes.data?.history || []).map(item => ({
+  time: new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  power: item.power
+}));
+
+console.log("🧭 Formatted historical data:", formattedHistory);
+setHistoricalData(formattedHistory);
+
 
       // 5️⃣ Fetch insights ✅ optional but consistent
       const insightRes = await api.get(`/api/energy/insights?deviceId=${firstDeviceId}`);
@@ -123,6 +129,10 @@ const TrendAnalysis = () => {
     }
   };
 
+
+  const firstDeviceId = "METER001"; // fallback just in case
+  useEffect(() => {
+    
   fetchTrendData();
 }, []);
 
@@ -187,7 +197,7 @@ const TrendAnalysis = () => {
         </header>
 
         {/* ✅ Consumption Trends */}
-        <section className="trends-section">
+        {/* <section className="trends-section">
           <h2 className="section-title">Consumption Trends</h2>
           {consumptionTrends.length === 0 ? (
             <p className="no-data">No trend data available.</p>
@@ -232,7 +242,77 @@ const TrendAnalysis = () => {
               ))}
             </div>
           )}
-        </section>
+        </section> */}
+        <section className="trends-section">
+  <div className="trends-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <h2 className="section-title">Consumption Trends</h2>
+    
+    {/* ✅ Refresh Button */}
+    <button
+      onClick={fetchTrendData}
+      style={{
+        backgroundColor: "#00d4ff",
+        color: "#000",
+        padding: "8px 14px",
+        borderRadius: "8px",
+        border: "none",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "0.2s",
+      }}
+      onMouseOver={(e) => (e.target.style.backgroundColor = "#00aacc")}
+      onMouseOut={(e) => (e.target.style.backgroundColor = "#00d4ff")}
+    >
+      Refresh Data
+    </button>
+  </div>
+
+  {consumptionTrends.length === 0 ? (
+    <p className="no-data">No trend data available.</p>
+  ) : (
+    <div className="trends-grid">
+      {consumptionTrends.map((trend, index) => (
+        <div key={index} className="trend-card">
+          <div className="trend-header">
+            <h3 className="trend-title">{trend.title || "Unnamed Trend"}</h3>
+            <div className="trend-metrics">
+              <span className="trend-value">{trend.value ?? "--"}</span>
+              <span className={`trend-change ${trend.changeType || ""}`}>
+                {trend.change ?? ""}
+              </span>
+            </div>
+          </div>
+
+          {trend.data && (
+            <div className="trend-chart">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={trend.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="label" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1a1a1a",
+                      border: "1px solid #333",
+                      borderRadius: "8px",
+                      color: "#fff",
+                    }}
+                  />
+                  <Bar
+                    dataKey="avgPower"
+                    fill={trend.color || "#00d4ff"}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</section>
+
 
         {/* ✅ AI Prediction vs Actual */}
         {aiPrediction?.data && (
